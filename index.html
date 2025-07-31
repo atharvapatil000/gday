@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>"My Heart Belongs to You"</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #ffe6e6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #cc0000;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            border: 2px solid #ff9999;
+            border-radius: 15px;
+            background-color: #fff0f0;
+            box-shadow: 0 4px 15px rgba(255, 102, 102, 0.3);
+            overflow: hidden;
+        }
+        .puzzle-board {
+            width: 300px;
+            height: 300px;
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            border: 1px dashed #ff9999;
+            background-color: #fffafa;
+        }
+        .flip-container {
+            position: absolute;
+            width: 150px;
+            height: 100px;
+            perspective: 1000px;
+            cursor: move;
+            z-index: 10;
+        }
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s; /* Only for flip animation */
+        }
+        .flip-container.flipped .card {
+            transform: rotateY(180deg);
+        }
+        .front, .back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border: 2px solid rgba(255, 102, 102, 0.5);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background-size: 300px 300px;
+        }
+        .front {
+            transform: rotateY(0deg);
+        }
+        .back {
+            transform: rotateY(180deg);
+        }
+        .flip-container:hover .card {
+            box-shadow: 0 4px 15px rgba(204, 0, 0, 0.4);
+        }
+        .flip-container.flipped:hover .card {
+            box-shadow: 0 4px 15px rgba(204, 0, 0, 0.4);
+        }
+        .flip-container.placed .front, .flip-container.placed .back {
+            border: 3px solid #0000ff; /* Blue highlight */
+        }
+        .puzzle-box {
+            position: absolute;
+            width: 150px;
+            height: 100px;
+            border: 2px dashed #666;
+            background-color: rgba(255, 255, 255, 0.2);
+            box-sizing: border-box;
+        }
+        .piece-container {
+            position: absolute;
+            top: 50px;
+            left: 400px;
+            width: 300px;
+            height: 300px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .romantic-quote {
+            display: none;
+            position: absolute;
+            top: 40%; /* Adjusted to avoid overlap with pieces */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px; /* Reduced font size for better fit */
+            font-style: italic;
+            color: #cc0000;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+            max-width: 280px; /* Increased max-width to fit longer text */
+            padding: 15px; /* Increased padding for better appearance */
+            line-height: 1.4; /* Added for better text readability */
+            overflow-wrap: break-word; /* Ensure long words wrap */
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            z-index: 5;
+        }
+        .romantic-quote.show {
+            display: block;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #ff6666;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #cc0000;
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #fff;
+            display: none;
+            transition: opacity 0.3s;
+        }
+        .success {
+            background-color: #28a745;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>"My Heart Belongs to You"</h1>
+    <p>Drag the pieces from the right side grid to the matching boxes on the left to form a complete heart</p>
+    <div class="game-container">
+        <div class="puzzle-board" id="puzzle-board-1"></div>
+        <div class="piece-container" id="piece-container-1">
+            <div id="romantic-quote" class="romantic-quote"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <button id="shuffle-btn">Shuffle Pieces</button>
+    </div>
+    <div id="message" class="message"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameContainer = document.querySelector('.game-container');
+            const puzzleBoard = document.getElementById('puzzle-board-1');
+            const pieceContainer = document.getElementById('piece-container-1');
+            const romanticQuoteDiv = document.getElementById('romantic-quote');
+            const shuffleBtn = document.getElementById('shuffle-btn');
+            const message = document.getElementById('message');
+            let isPuzzleSolved = false;
+
+            // Create heart image
+            function createHeartCanvas() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 300;
+                canvas.height = 300;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath();
+                const centerX = 150, centerY = 150;
+                const size = 135;
+
+                ctx.moveTo(centerX, centerY - size * 0.4);
+                ctx.bezierCurveTo(
+                    centerX + size * 0.6, centerY - size * 0.6,
+                    centerX + size * 0.8, centerY,
+                    centerX, centerY + size * 0.7
+                );
+                ctx.bezierCurveTo(
+                    centerX - size * 0.8, centerY,
+                    centerX - size * 0.6, centerY - size * 0.6,
+                    centerX, centerY - size * 0.4
+                );
+                ctx.closePath();
+                ctx.fill();
+
+                const gradient = ctx.createRadialGradient(
+                    centerX, centerY, size * 0.2,
+                    centerX, centerY, size * 0.8
+                );
+                gradient.addColorStop(0, '#ff3333');
+                gradient.addColorStop(1, '#cc0000');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                return canvas;
+            }
+
+            const heartCanvas = createHeartCanvas();
+            const heartUrl = heartCanvas.toDataURL();
+            // Replace with your .jpg image URL or ensure 'gf.jpeg' is in the same directory
+            const photoUrl = 'gf.jpeg'; // Update to a valid URL if needed, e.g., 'https://via.placeholder.com/300x300.jpg'
+            const rows = 3;
+            const cols = 2;
+            const pieceWidth = heartCanvas.width / cols; // 150px
+            const pieceHeight = heartCanvas.height / rows; // 100px
+
+            // Romantic quotes
+            const romanticQuotes = [
+                "Happy Girlfriend Day, my love. ❤️ You mean the world to me. Every smile of yours lights up my day, and every moment with you feels special. You’re not just my girlfriend - you’re my best friend, my heart, and my happiness."
+            ];
+
+            // Create one set of pieces and boxes
+            const puzzleSet = { pieces: [], boxes: [] };
+
+            // Create puzzle boxes on puzzle-board-1
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const box = document.createElement('div');
+                    box.className = 'puzzle-box';
+                    box.style.left = `${col * pieceWidth}px`;
+                    box.style.top = `${row * pieceHeight}px`;
+                    box.dataset.row = row;
+                    box.dataset.col = col;
+                    puzzleBoard.appendChild(box);
+                    puzzleSet.boxes.push(box);
+                }
+            }
+
+            // Create 6 puzzle pieces with flip effect
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const flipContainer = document.createElement('div');
+                    flipContainer.className = 'flip-container';
+
+                    const card = document.createElement('div');
+                    card.className = 'card';
+
+                    const front = document.createElement('div');
+                    front.className = 'front';
+                    front.style.backgroundImage = `url(${heartUrl})`;
+                    front.style.backgroundPosition = `-${col * pieceWidth}px -${row * pieceHeight}px`;
+                    front.style.backgroundSize = `${heartCanvas.width}px ${heartCanvas.height}px`;
+
+                    const back = document.createElement('div');
+                    back.className = 'back';
+                    back.style.backgroundImage = `url(${photoUrl})`;
+                    back.style.backgroundPosition = `-${col * pieceWidth}px -${row * pieceHeight}px`;
+                    back.style.backgroundSize = `${heartCanvas.width}px ${heartCanvas.height}px`;
+
+                    card.appendChild(front);
+                    card.appendChild(back);
+                    flipContainer.appendChild(card);
+
+                    flipContainer.dataset.correctX = col * pieceWidth;
+                    flipContainer.dataset.correctY = row * pieceHeight;
+                    flipContainer.dataset.row = row;
+                    flipContainer.dataset.col = col;
+
+                    puzzleSet.pieces.push(flipContainer);
+                }
+            }
+
+            // Shuffle array utility
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            // Check if puzzle is solved
+            function checkIfSolved() {
+                const boardRect = puzzleBoard.getBoundingClientRect();
+                const solved = puzzleSet.pieces.every(piece => {
+                    const rect = piece.getBoundingClientRect();
+                    const x = rect.left - boardRect.left;
+                    const y = rect.top - boardRect.top;
+                    const correctX = parseFloat(piece.dataset.correctX);
+                    const correctY = parseFloat(piece.dataset.correctY);
+                    return Math.abs(x - correctX) < 15 && Math.abs(y - correctY) < 15;
+                });
+
+                if (solved && !isPuzzleSolved) {
+                    message.style.display = 'block';
+                    message.textContent = 'Congratulations! You completed the heart puzzle! ❤️';
+                    message.classList.add('success');
+                    isPuzzleSolved = true;
+                    const randomQuote = romanticQuotes[Math.floor(Math.random() * romanticQuotes.length)];
+                    romanticQuoteDiv.textContent = randomQuote;
+                    romanticQuoteDiv.classList.add('show');
+                    // Delay flip to show blue highlight
+                    setTimeout(() => {
+                        puzzleSet.pieces.forEach(piece => {
+                            piece.classList.add('flipped');
+                        });
+                    }, 1000); // 1-second delay
+                }
+            }
+
+            // Position pieces in a shuffled 3x2 grid in piece-container-1
+            function resetPieces() {
+                message.style.display = 'none';
+                message.classList.remove('success');
+                romanticQuoteDiv.classList.remove('show');
+                isPuzzleSolved = false;
+                puzzleSet.pieces.forEach(piece => {
+                    piece.classList.remove('flipped', 'placed');
+                });
+
+                puzzleBoard.querySelectorAll('.flip-container').forEach(piece => piece.remove());
+                pieceContainer.innerHTML = '';
+                pieceContainer.appendChild(romanticQuoteDiv);
+
+                const shuffledPieces = shuffleArray([...puzzleSet.pieces]);
+                const gridPositions = [
+                    { row: 0, col: 0 }, { row: 0, col: 1 },
+                    { row: 1, col: 0 }, { row: 1, col: 1 },
+                    { row: 2, col: 0 }, { row: 2, col: 1 }
+                ];
+
+                shuffledPieces.forEach((piece, index) => {
+                    const pos = gridPositions[index];
+                    piece.style.left = `${pos.col * pieceWidth}px`;
+                    piece.style.top = `${pos.row * pieceHeight}px`;
+                    pieceContainer.appendChild(piece);
+                    makeDraggable(piece);
+                });
+            }
+
+            // Make elements draggable
+            function makeDraggable(element) {
+                let posX = 0, posY = 0, mouseX = 0, mouseY = 0;
+
+                element.addEventListener('mousedown', startDragging);
+
+                function startDragging(e) {
+                    e.preventDefault();
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+
+                    const rect = element.getBoundingClientRect();
+                    const containerRect = gameContainer.getBoundingClientRect();
+                    element.style.left = `${rect.left - containerRect.left}px`;
+                    element.style.top = `${rect.top - containerRect.top}px`;
+                    gameContainer.appendChild(element);
+
+                    document.addEventListener('mouseup', stopDragging);
+                    document.addEventListener('mousemove', dragElement);
+                }
+
+                function dragElement(e) {
+                    e.preventDefault();
+                    posX = mouseX - e.clientX;
+                    posY = mouseY - e.clientY;
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+
+                    let newLeft = element.offsetLeft - posX;
+                    let newTop = element.offsetTop - posY;
+
+                    const containerRect = gameContainer.getBoundingClientRect();
+                    newLeft = Math.max(0, Math.min(newLeft, containerRect.width - pieceWidth));
+                    newTop = Math.max(0, Math.min(newTop, containerRect.height - pieceHeight));
+
+                    element.style.left = `${newLeft}px`;
+                    element.style.top = `${newTop}px`;
+
+                    const boardRect = puzzleBoard.getBoundingClientRect();
+                    const rect = element.getBoundingClientRect();
+                    const x = rect.left - boardRect.left;
+                    const y = rect.top - boardRect.top;
+                    const correctX = parseFloat(element.dataset.correctX);
+                    const correctY = parseFloat(element.dataset.correctY);
+
+                    if (Math.abs(x - correctX) < 15 && Math.abs(y - correctY) < 15) {
+                        element.style.left = `${correctX + (boardRect.left - containerRect.left)}px`;
+                        element.style.top = `${correctY + (boardRect.top - containerRect.top)}px`;
+                        element.classList.add('placed');
+                        checkIfSolved(); // Check if all pieces are placed
+                    } else {
+                        element.classList.remove('placed');
+                    }
+                }
+
+                function stopDragging() {
+                    document.removeEventListener('mouseup', stopDragging);
+                    document.removeEventListener('mousemove', dragElement);
+                }
+            }
+
+            // Initialize game
+            shuffleBtn.addEventListener('click', resetPieces);
+            resetPieces();
+        });
+    </script>
+</body>
+</html>
